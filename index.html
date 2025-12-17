@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en" dir="ltr"> 
+ <head> 
+  <meta charset="UTF-8"> 
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
+  <title>CT exam</title> 
+  <script src="https://cdn.tailwindcss.com"></script> 
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;display=swap" rel="stylesheet"> 
+  <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #E5E4E2;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .option-button {
+            transition: all 0.2s ease-in-out;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            text-align: left;
+        }
+        .option-button:hover:not(.answered) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.06);
+        }
+        /* Icon styles */
+        .feedback-icon {
+            width: 24px;
+            height: 24px;
+            margin-left: 10px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .feedback-icon-visible {
+            opacity: 1;
+        }
+    </style> 
+ </head> 
+ <body> 
+  <div id="quiz-container" class="w-full max-w-2xl bg-white shadow-xl rounded-2xl p-6 md:p-10"> 
+   <div class="flex justify-between items-center mb-6 border-b pb-4 border-gray-200"> 
+    <h1 class="text-2xl font-bold text-[#6D9BCA]">Critical thinking_End-Block</h1> 
+    <div class="text-lg font-semibold text-gray-700">
+      Score: <span id="score-display" class="text-green-600">0</span> / <span id="total-questions">0</span> 
+    </div> 
+   </div> 
+   <div id="question-card" class="mb-8 min-h-24"> 
+    <p class="text-2xl font-semibold text-gray-800 mb-4" id="question-text"> Loading question... </p> 
+    <div id="options-container" class="space-y-4"> 
+    </div> 
+   </div> 
+   <div class="flex justify-between items-center pt-4 border-t border-gray-200"> 
+    <div class="text-lg text-gray-600 font-medium">
+      Question <span id="current-q-number">0</span> of <span id="total-questions-footer">0</span> 
+    </div> 
+    <div class="flex gap-3"> <!-- Previous Question Button --> <button id="prev-button" onclick="previousQuestion()" class="px-6 py-3 bg-black text-white font-bold rounded-xl shadow-lg hover:bg-gray-800 transition duration-150 ease-in-out disabled:bg-gray-400" disabled> &lt; </button> <!-- Next Question Button --> <button id="next-button" onclick="nextQuestion()" class="px-6 py-3 bg-blue-600 text-white font-bold rounded-xl shadow-lg hover:bg-blue-700 transition duration-150 ease-in-out disabled:bg-gray-400" disabled> &gt; </button> 
+    </div> 
+   </div> 
+   <div id="final-score-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 z-50"> 
+    <div class="bg-white rounded-xl p-8 text-center shadow-2xl w-full max-w-sm"> 
+     <h2 class="text-4xl font-extrabold text-blue-600 mb-4">Quiz Complete!</h2> 
+     <p class="text-xl text-gray-700 mb-6">Your final score is:</p> 
+     <p class="text-6xl font-black text-green-700 mb-8" id="final-score-text">0 / 0</p> <button onclick="window.location.reload()" class="px-6 py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 transition duration-150"> Start Over </button> 
+    </div> 
+   </div> 
+  </div> 
+  <script>
+    const quizData = [
+               
+                
+    
+           
+
+    ];
+
+        let currentQuestionIndex = 0;
+        let score = 0;
+        let answered = false;
+        const totalQuestions = quizData.length;
+
+        // --- DOM ELEMENTS ---
+        const questionText = document.getElementById('question-text');
+        const optionsContainer = document.getElementById('options-container');
+        const scoreDisplay = document.getElementById('score-display');
+        const currentQNumber = document.getElementById('current-q-number');
+        const nextButton = document.getElementById('next-button');
+        const finalScoreModal = document.getElementById('final-score-modal');
+        const finalScoreText = document.getElementById('final-score-text');
+        const prevButton = document.getElementById('prev-button');
+
+        // --- UTILITY ICONS (Inline SVG for instant rendering) ---
+        const correctIconSVG = `
+            <svg class="feedback-icon text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+            </svg>`;
+        const incorrectIconSVG = `
+            <svg class="feedback-icon text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>`;
+
+        // --- QUIZ LOGIC FUNCTIONS ---
+
+        function loadQuestion() {
+            if (currentQuestionIndex >= totalQuestions) {
+                showFinalScore();
+                return;
+            }
+
+            const currentQ = quizData[currentQuestionIndex];
+            answered = false;
+            nextButton.disabled = true;
+            prevButton.disabled = currentQuestionIndex === 0;
+            optionsContainer.innerHTML = '';
+
+            // Clean the question number for display (it's prepended in the data for readability)
+            questionText.textContent = currentQ.question;
+            currentQNumber.textContent = currentQuestionIndex + 1;
+
+            currentQ.options.forEach((optionText) => {
+                const optionButton = document.createElement('button');
+                optionButton.className = 'option-button w-full p-4 bg-gray-100 rounded-xl font-medium text-gray-700 shadow-sm border border-gray-200';
+                optionButton.setAttribute('data-option', optionText);
+                optionButton.innerHTML = `
+                    <span class="flex-1">${optionText}</span>
+                    <span class="feedback-placeholder"></span>
+                `;
+                optionButton.onclick = () => selectOption(optionText, optionButton);
+                optionsContainer.appendChild(optionButton);
+            });
+        }
+
+        function selectOption(selectedOptionText, selectedButton) {
+            if (answered) {
+                return; // Prevent multiple clicks on the current question
+            }
+            answered = true;
+            nextButton.disabled = false;
+
+            const currentQ = quizData[currentQuestionIndex];
+            const isCorrect = selectedOptionText === currentQ.answer;
+
+            if (isCorrect) {
+                score++;
+                scoreDisplay.textContent = score;
+            }
+
+            showFeedback(currentQ.answer, selectedButton);
+        }
+
+        function showFeedback(correctAnswer, selectedButton) {
+            const buttons = optionsContainer.querySelectorAll('.option-button');
+
+            buttons.forEach(button => {
+                const optionText = button.getAttribute('data-option');
+                const isCorrect = optionText === correctAnswer;
+                const isSelected = button === selectedButton;
+
+                button.classList.add('answered');
+                button.disabled = true;
+
+                const iconPlaceholder = button.querySelector('.feedback-placeholder');
+
+                if (isCorrect) {
+                    button.classList.add('bg-green-100', 'border-green-400');
+                    iconPlaceholder.innerHTML = correctIconSVG;
+                    iconPlaceholder.querySelector('.feedback-icon').classList.add('feedback-icon-visible');
+                    button.classList.remove('bg-gray-100');
+                } else if (isSelected) {
+                    button.classList.add('bg-red-100', 'border-red-400');
+                    iconPlaceholder.innerHTML = incorrectIconSVG;
+                    iconPlaceholder.querySelector('.feedback-icon').classList.add('feedback-icon-visible');
+                    button.classList.remove('bg-gray-100');
+                }
+            });
+        }
+
+        function nextQuestion() {
+            currentQuestionIndex++;
+            loadQuestion();
+        }
+        
+        
+        function previousQuestion() {
+    if (currentQuestionIndex > 0) {
+        currentQuestionIndex--;
+        loadQuestion();
+    }
+}
+
+        function showFinalScore() {
+            finalScoreText.textContent = `${score} / ${totalQuestions}`;
+            finalScoreModal.classList.remove('hidden');
+        }
+
+        // --- INITIALIZATION ---
+        window.onload = function() {
+            document.getElementById('total-questions').textContent = totalQuestions;
+            document.getElementById('total-questions-footer').textContent = totalQuestions;
+            loadQuestion();
+        };
+
+    </script> 
+ 
+</body></html>
+
+
+
